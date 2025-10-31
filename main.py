@@ -5,7 +5,8 @@ import threading
 from ttkthemes import ThemedTk
 import time
 
-from game_logic import DiceGame, IGame, GameResult
+from game_logic import DiceGame, SlotsGame, IGame, GameResult
+
 
 class CasinoApp:
     def __init__(self, root):
@@ -31,12 +32,11 @@ class CasinoApp:
 
         slots_rb = ttk.Radiobutton(
             game_frame,
-            text="Слоти (ще не готово)",
+            text="Слоти",
             variable=self.selected_game,
             value="slots"
         )
         slots_rb.pack(anchor=tk.W, padx=10)
-        slots_rb.config(state=tk.DISABLED)
 
         pistol_rb = ttk.Radiobutton(
             game_frame,
@@ -71,16 +71,10 @@ class CasinoApp:
         )
         self.log_browser.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        #змінна для зберігання результату з потоку
         self.simulation_result = None
 
     def start_simulation(self):
-        """
-        Ця функція запускає симуляцію
-        у фоновому потоці.
-        """
-
-        #блокуємо кнопку, щоб не натиснули двічі
+        """Ця функція запускає симуляцію у фоновому потоці."""
         self.start_button.config(state=tk.DISABLED)
         self.log_browser.delete("1.0", tk.END)
         self.log_browser.insert(tk.END, "Запуск симуляції... Будь ласка, зачекайте...\n")
@@ -98,11 +92,14 @@ class CasinoApp:
 
         if game_choice == "dice":
             game = DiceGame()
+        elif game_choice == "slots":
+            game = SlotsGame()
         else:
             self.log_browser.insert(tk.END, "Помилка: Ця гра ще не реалізована.")
             self.start_button.config(state=tk.NORMAL)
             return
 
+        #запускаємо потік
         simulation_thread = threading.Thread(
             target=self.run_simulation_logic,
             args=(game, num_runs)
@@ -111,36 +108,42 @@ class CasinoApp:
         self.check_for_result()
 
     def run_simulation_logic(self, game: IGame, num_runs: int):
-        """
-        Ця функція виконує всю важку роботу.
-        Вона НЕ МАЄ права чіпати UI (напр. log_browser).
-        """
+        """Ця функція виконує всю важку роботу у фоновому потоці."""
+
+        #запуск симуляції
         total_wins = 0
         total_money_delta = 0.0
-
         for _ in range(num_runs):
             result = game.play_once()
             if result.is_win:
                 total_wins += 1
             total_money_delta += result.money_delta
 
+        #розрахунок статистики
         win_percentage = (total_wins / num_runs) * 100.0
 
+
+        #розрахунок RTP (тільки для слотів)
+        rtp_text = ""
+        if isinstance(game, SlotsGame):
+            rtp = (total_money_delta + num_runs) / num_runs * 100
+            rtp_text = f"RTP (Return To Player): {rtp:.2f}%\n"
+
+        #формування фінального тексту
         result_text = ""
         result_text += f"--- Запуск гри '{game.get_game_name()}' ({num_runs} разів) ---\n"
         result_text += "\n--- СТАТИСТИКА ЗАВЕРШЕНА ---\n"
         result_text += f"Всього виграшів: {total_wins} ({win_percentage:.2f} %)\n"
         result_text += f"Чистий прибуток/збиток: {total_money_delta} монет\n"
+        result_text += rtp_text  #додаємо рядок RTP (буде порожнім для костей)
 
+        #збереження результату для головного потоку
         self.simulation_result = result_text
 
     def check_for_result(self):
-        """
-        ця функція кожні 100мс перевіряє,
-        чи фоновий потік вже закінчив роботу.
-        """
+        """Перевіряє, чи фоновий потік закінчив роботу."""
         if self.simulation_result is not None:
-            self.log_browser.delete("1.0", tk.END)  # Очищуємо "Зачекайте..."
+            self.log_browser.delete("1.0", tk.END)
             self.log_browser.insert(tk.END, self.simulation_result)
             self.start_button.config(state=tk.NORMAL)
             self.simulation_result = None

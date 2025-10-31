@@ -86,6 +86,36 @@ class SlotsGame(IGame):
             money_delta=money_delta
         )
 
+class PistolRouletteGame(IGame):
+    """
+    Реалізація гри "Рулетка з пістолетом".
+    Модель: 1 з 6 шансів на подію.
+    """
+
+    def get_game_name(self) -> str:
+        return "Рулетка з пістолетом"
+
+    def play_once(self) -> GameResult:
+        #симулюємо "прокрутку барабана" (1 з 6 шансів)
+        trigger_pull = random.randint(1, 6)
+
+        #правила: "Виграш" - якщо подія не сталася (випало не 1)
+        #"програш" - якщо подія сталася (випало 1)
+        is_win = (trigger_pull != 1)
+
+        #розрахунок грошей
+        if is_win:
+            money_delta = 1.0  # Виграли 1 монету (5/6 шансів)
+        else:
+            money_delta = -5.0 # Програли 5 монет (1/6 шансів)
+
+        #повертаємо результат
+        return GameResult(
+            primary_value=trigger_pull,
+            is_win=is_win,
+            money_delta=money_delta
+        )
+
 # --- Блок для тестування---
 if __name__ == "__main__":
     print("Тестування логіки DiceGame...")
@@ -119,11 +149,33 @@ if __name__ == "__main__":
         result = slot_game.play_once()
         slot_balance += result.money_delta
 
-    # Розрахунок RTP (Return To Player)
-    # Скільки % грошей повернулося гравцю
-    # Ми "поставили" 100000 монет (по -1 за спін)
+    #розрахунок RTP (Return To Player)
+    #скільки % грошей повернулося гравцю
+    #ми "поставили" 100000 монет (по -1 за спін)
     rtp = (slot_balance + slot_runs) / slot_runs * 100
 
     print(f"Зіграно {slot_runs} спінів.")
     print(f"Баланс: {slot_balance}")
     print(f"RTP (Return To Player): {rtp:.2f}%")
+
+    print("\n" + "=" * 30 + "\n")
+    print("Тестування логіки PistolRouletteGame...")
+
+    pistol_game = PistolRouletteGame()
+    print(f"Гра: {pistol_game.get_game_name()}")
+
+    pistol_balance = 0
+    pistol_wins = 0
+    pistol_runs = 100000
+
+    for _ in range(pistol_runs):
+        result = pistol_game.play_once()
+        if result.is_win:
+            pistol_wins += 1
+        pistol_balance += result.money_delta
+
+    print(f"Зіграно {pistol_runs} раундів.")
+    print(f"Виграшів (подія не сталася): {pistol_wins}")
+    print(f"Баланс: {pistol_balance}")
+    #теоретично, баланс має бути близьким до 0, оскільки
+    #(5/6 * 1.0) + (1/6 * -5.0) = 0

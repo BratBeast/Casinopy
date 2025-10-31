@@ -5,7 +5,7 @@ import threading
 from ttkthemes import ThemedTk
 import time
 
-from game_logic import DiceGame, SlotsGame, IGame, GameResult
+from game_logic import DiceGame, SlotsGame, PistolRouletteGame, IGame, GameResult
 
 
 class CasinoApp:
@@ -40,12 +40,11 @@ class CasinoApp:
 
         pistol_rb = ttk.Radiobutton(
             game_frame,
-            text="Рулетка з пістолетом (ще не готово)",
+            text="Рулетка з пістолетом",
             variable=self.selected_game,
             value="pistol"
         )
         pistol_rb.pack(anchor=tk.W, padx=10)
-        pistol_rb.config(state=tk.DISABLED)
 
         settings_frame = ttk.Frame(main_frame)
         settings_frame.pack(fill=tk.X, padx=5, pady=10)
@@ -94,6 +93,8 @@ class CasinoApp:
             game = DiceGame()
         elif game_choice == "slots":
             game = SlotsGame()
+        elif game_choice == "pistol":
+            game = PistolRouletteGame()
         else:
             self.log_browser.insert(tk.END, "Помилка: Ця гра ще не реалізована.")
             self.start_button.config(state=tk.NORMAL)

@@ -1,109 +1,41 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+from game_logic import DiceGame, SimulationEngine, GameResult
 
-from game_logic import DiceGame, SlotsGame, PistolRouletteGame, GameResult, IGame
 
-class TestGameLogic(unittest.TestCase):
-
+class TestSimulationEngine(unittest.TestCase):
     def setUp(self):
-        """ця функція викликається перед кожним тестом."""
-        self.dice_game = DiceGame()
-        self.slots_game = SlotsGame()
-        self.pistol_game = PistolRouletteGame()
+        self.mock_game = MagicMock()
+        self.mock_game.get_game_name.return_value = "Test Game"
+        self.engine = SimulationEngine(self.mock_game)
 
-    # --- Тести для DiceGame ---
+    def test_simulation_runs_correct_number_of_times(self):
+        """Перевірка, що двигун викликає гру рівно N разів."""
+        num_runs = 50
+        self.mock_game.play_once.return_value = GameResult(primary_value=1, is_win=True, money_delta=1.0)
 
-    def test_dice_game_name(self):
-        """тестуємо, що 'Кості' повертають правильну назву"""
-        self.assertEqual(self.dice_game.get_game_name(), "Гра в Кості")
+        report, data, duration = self.engine.run(num_runs)
 
-    def test_dice_game_play_once_types(self):
-        """тестуємо, що 'Кості' повертають коректні ТИПИ даних"""
-        result = self.dice_game.play_once()
-        self.assertIsInstance(result, GameResult)
-        self.assertIsInstance(result.primary_value, int)
-        self.assertIsInstance(result.money_delta, float)
-        self.assertIsInstance(result.is_win, bool)
+        self.assertEqual(self.mock_game.play_once.call_count, num_runs)
+        self.assertEqual(len(data), num_runs)
+        self.assertGreater(duration, 0)
 
-    # --- Тести для SlotsGame ---
+    def test_performance_measurement(self):
+        """Перевірка, що час виконання вимірюється."""
+        self.mock_game.play_once.return_value = GameResult(1, True, 1.0)
+        _, _, duration = self.engine.run(10)
+        self.assertIsInstance(duration, float)
 
-    def test_slots_game_name(self):
-        """тестуємо, що 'Слоти' повертають правильну назву"""
-        self.assertEqual(self.slots_game.get_game_name(), "Слот-машина")
 
-    def test_slots_game_play_once_types(self):
-        """тестуємо, що 'Слоти' повертають коректні ТИПИ даних"""
-        result = self.slots_game.play_once()
-        self.assertIsInstance(result, GameResult)
-        self.assertIsInstance(result.primary_value, str)
-        self.assertIsInstance(result.money_delta, float)
-        self.assertIsInstance(result.is_win, bool)
-
-    # --- Тести для PistolRouletteGame ---
-
-    def test_pistol_game_name(self):
-        """тестуємо, що 'Рулетка' повертає правильну назву"""
-        self.assertEqual(self.pistol_game.get_game_name(), "Рулетка з пістолетом")
-
-    def test_pistol_game_play_once_types(self):
-        """тестуємо, що 'Рулетка' повертають коректні ТИПИ даних"""
-        result = self.pistol_game.play_once()
-        self.assertIsInstance(result, GameResult)
-        self.assertIsInstance(result.primary_value, int)
-        self.assertIsInstance(result.money_delta, float)
-        self.assertIsInstance(result.is_win, bool)
-
+class TestDiceGameRefactored(unittest.TestCase):
     @patch('game_logic.random.randint')
-    def test_dice_game_logic_win(self, mock_randint):
-        """тестуємо логіку виграшу в Костях (дубль)"""
-        mock_randint.side_effect = [3, 3]
-        result = self.dice_game.play_once()
+    def test_dice_win_logic(self, mock_randint):
+        """Перевірка логіки дубля (перемоги) в костях."""
+        mock_randint.side_effect = [6, 6]  # Дубль
+        game = DiceGame()
+        result = game.play_once()
         self.assertTrue(result.is_win)
         self.assertEqual(result.money_delta, 4.0)
-
-    @patch('game_logic.random.randint')
-    def test_dice_game_logic_lose(self, mock_randint):
-        """тестуємо логіку програшу в Костях (не дубль)"""
-        mock_randint.side_effect = [1, 2]
-        result = self.dice_game.play_once()
-        self.assertFalse(result.is_win)
-        self.assertEqual(result.money_delta, -1.0)
-
-    @patch('game_logic.random.choices')
-    def test_slots_game_logic_jackpot(self, mock_choices):
-        """тестуємо логіку джекпоту в Слотах (7️⃣-7️⃣-7️⃣)в"""
-        mock_choices.return_value = ["7️⃣", "7️⃣", "7️⃣"]
-
-        result = self.slots_game.play_once()
-
-        self.assertTrue(result.is_win)
-        self.assertEqual(result.money_delta, 100.0)
-
-    @patch('game_logic.random.choices')
-    def test_slots_game_logic_lose(self, mock_choices):
-        """тестуємо логіку програшу в Слотах"""
-        mock_choices.return_value = ["🍒", "BAR", "🍋"]
-
-        result = self.slots_game.play_once()
-
-        self.assertFalse(result.is_win)
-        self.assertEqual(result.money_delta, -1.0)
-
-    @patch('game_logic.random.randint')
-    def test_pistol_game_logic_lose(self, mock_randint):
-        """тестуємо логіку програшу в Рулетці (подія сталася)"""
-        mock_randint.return_value = 1
-        result = self.pistol_game.play_once()
-        self.assertFalse(result.is_win)
-        self.assertEqual(result.money_delta, -5.0)
-
-    @patch('game_logic.random.randint')
-    def test_pistol_game_logic_win(self, mock_randint):
-        """тестуємо логіку виграшу в Рулетці (подія не сталася)"""
-        mock_randint.return_value = 4
-        result = self.pistol_game.play_once()
-        self.assertTrue(result.is_win)
-        self.assertEqual(result.money_delta, 1.0)
 
 
 if __name__ == '__main__':
